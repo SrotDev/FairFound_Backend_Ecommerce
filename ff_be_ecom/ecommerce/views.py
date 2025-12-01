@@ -259,10 +259,18 @@ class CartViewSet(viewsets.ModelViewSet):
             user=request.user,
             defaults={'email': request.user.email, 'name': request.user.get_full_name() or request.user.username}
         )
-        cart, _ = Cart.objects.get_or_create(
-            customer=customer,
-            status=Cart.Status.OPEN
-        )
+        # Use select_for_update to prevent race conditions in concurrent requests
+        with transaction.atomic():
+            cart = Cart.objects.filter(
+                customer=customer,
+                status=Cart.Status.OPEN
+            ).select_for_update().first()
+            
+            if not cart:
+                cart = Cart.objects.create(
+                    customer=customer,
+                    status=Cart.Status.OPEN
+                )
         return cart
     
     @action(detail=False, methods=['get'])
@@ -283,23 +291,32 @@ class CartViewSet(viewsets.ModelViewSet):
         variant = get_object_or_404(Variant, id=serializer.validated_data['variant_id'])
         qty = serializer.validated_data['qty']
         
-        # Check stock
-        if variant.stock < qty:
-            return Response(
-                {'detail': f'Insufficient stock. Available: {variant.stock}'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Check if item already in cart
-        cart_item, created = CartItem.objects.get_or_create(
-            cart=cart,
-            variant=variant,
-            defaults={'qty': qty, 'price_at_add': variant.effective_price}
-        )
-        
-        if not created:
-            cart_item.qty += qty
-            cart_item.save(update_fields=['qty'])
+        with transaction.atomic():
+            # Lock the variant row to prevent race conditions
+            variant = Variant.objects.select_for_update().get(id=variant.id)
+            
+            # Check if item already in cart
+            existing_item = CartItem.objects.filter(cart=cart, variant=variant).first()
+            total_qty = qty + (existing_item.qty if existing_item else 0)
+            
+            # Check stock for total quantity
+            if variant.stock < total_qty:
+                return Response(
+                    {'detail': f'Insufficient stock. Available: {variant.stock}, requested total: {total_qty}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if existing_item:
+                existing_item.qty = total_qty
+                existing_item.save(update_fields=['qty'])
+                cart_item = existing_item
+            else:
+                cart_item = CartItem.objects.create(
+                    cart=cart,
+                    variant=variant,
+                    qty=qty,
+                    price_at_add=variant.effective_price
+                )
         
         return Response(CartItemSerializer(cart_item).data, status=status.HTTP_201_CREATED)
     
@@ -385,14 +402,32 @@ class CartViewSet(viewsets.ModelViewSet):
         billing_address = serializer.validated_data.get('billing_address', shipping_address)
         payment_ref = serializer.validated_data.get('payment_ref', '')
         
-        # Calculate totals
-        subtotal = cart.total
-        discount_total = Decimal('0.00')  # Can be enhanced to apply promotions
-        shipping_total = Decimal('0.00')  # Can be calculated based on address
-        tax_total = Decimal('0.00')  # Can be calculated based on jurisdiction
-        grand_total = subtotal - discount_total + shipping_total + tax_total
-        
         with transaction.atomic():
+            # Lock all variant rows to prevent race conditions
+            cart_items = list(cart.items.select_related('variant').all())
+            variant_ids = [item.variant.id for item in cart_items]
+            
+            # Lock variants and verify stock availability
+            locked_variants = {
+                v.id: v for v in Variant.objects.select_for_update().filter(id__in=variant_ids)
+            }
+            
+            # Verify stock for all items
+            for cart_item in cart_items:
+                variant = locked_variants[cart_item.variant.id]
+                if variant.stock < cart_item.qty:
+                    return Response(
+                        {'detail': f'Insufficient stock for {variant.sku}. Available: {variant.stock}'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            # Calculate totals
+            subtotal = sum(item.line_total for item in cart_items)
+            discount_total = Decimal('0.00')  # Can be enhanced to apply promotions
+            shipping_total = Decimal('0.00')  # Can be calculated based on address
+            tax_total = Decimal('0.00')  # Can be calculated based on jurisdiction
+            grand_total = subtotal - discount_total + shipping_total + tax_total
+            
             # Create order
             order = Order.objects.create(
                 order_number=f'ORD-{uuid.uuid4().hex[:8].upper()}',
@@ -408,22 +443,24 @@ class CartViewSet(viewsets.ModelViewSet):
             )
             
             # Create order items and update inventory
-            for cart_item in cart.items.all():
+            for cart_item in cart_items:
+                variant = locked_variants[cart_item.variant.id]
+                
                 OrderItem.objects.create(
                     order=order,
-                    variant=cart_item.variant,
+                    variant=variant,
                     qty=cart_item.qty,
                     unit_price=cart_item.price_at_add,
                     line_total=cart_item.line_total,
                 )
                 
-                # Update stock
-                cart_item.variant.stock -= cart_item.qty
-                cart_item.variant.save(update_fields=['stock'])
+                # Update stock atomically
+                variant.stock -= cart_item.qty
+                variant.save(update_fields=['stock'])
                 
                 # Create inventory movement
                 InventoryMovement.objects.create(
-                    variant=cart_item.variant,
+                    variant=variant,
                     change=-cart_item.qty,
                     reason='sale',
                     metadata={'order_number': order.order_number}
