@@ -1,0 +1,17 @@
+# Django and core dependencies
+Django>=5.0,<6.0
+
+# Django REST Framework
+djangorestframework>=3.14.0
+
+# JWT Authentication
+djangorestframework-simplejwt>=5.3.0
+
+# Filtering support
+django-filter>=23.5
+
+# CORS headers
+django-cors-headers>=4.3.0
+
+# Database support (optional, for PostgreSQL)
+psycopg2-binary>=2.9.9
