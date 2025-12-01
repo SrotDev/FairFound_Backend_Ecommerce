@@ -16,7 +16,24 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from django.urls import include
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from accounts.views import RegisterView
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+     path('admin/', admin.site.urls),
+    path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/auth/register/', RegisterView.as_view(), name='auth_register'),
+    path('api/ecommerce/categories/', include('categories.urls')),
+    path('api/ecommerce/products/', include('products.urls')),
+    path('api/ecommerce/orders/', include('orders.urls')),
+    path('api/ecommerce/variants/', include('variants.urls')),
+    path('api/ecommerce/reviews/', include('reviews.urls')),
+    path('api/ecommerce/pricing-rules/', include('pricing_rules.urls')),
+    path('api/ecommerce/analytics/', include('analytics.urls')),
+    path('api/ecommerce/inventory', include('inventory.urls')),
+    path('api/ecommerce/promotions/', include('promotions.urls')),
 ]

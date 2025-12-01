@@ -37,7 +37,28 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_filters',
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'categories',
+    'products',
+    'customers',
+    'orders',
+    'analytics',
+    'carts',
+    'pricing_rules',
+    'reviews',
+    'variants',
+    'promotions',
+    'inventory',
+    'accounts',
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',],
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -74,8 +95,12 @@ WSGI_APPLICATION = 'ff_be_ecom.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'fair_found_ecom_db',
+        'USER': 'ecom_user',
+        'PASSWORD': 'securepassword123',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
