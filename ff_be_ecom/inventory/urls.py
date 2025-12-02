@@ -4,7 +4,10 @@ from django.urls import path, include
 from .views import InventoryMovementViewSet
 
 router = routers.DefaultRouter()
-router.register(r'inventory-movements', InventoryMovementViewSet, basename='inventory-movements')
+# Register under `movements` so the full URL becomes:
+# /api/ecommerce/inventory/movements/
+router.register(r'inventory', InventoryMovementViewSet, basename='inventory-movements')
 urlpatterns = [
-    path('', include(router.urls)),
+    path('', include(router.urls),
+         ),
 ]

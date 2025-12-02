@@ -1,7 +1,7 @@
 from django.shortcuts import render
 # Create your views here.
 from rest_framework import viewsets
-from rest_framework.permissions import IsAdminUser, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import InventoryMovement
 from .serializer import InventoryMovementSerializer
 
@@ -10,5 +10,5 @@ class InventoryMovementViewSet(viewsets.ModelViewSet):
     serializer_class = InventoryMovementSerializer
     def get_permissions(self):
         if self.action in ['create','update','partial_update','destroy']:
-            return [IsAdminUser()]
+            return [IsAuthenticated()]
         return [AllowAny()]

@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from rest_framework import viewsets, status
-from rest_framework.permissions import IsAdminUser, AllowAny
+from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from decimal import Decimal
@@ -13,7 +13,7 @@ class PromotionViewSet(viewsets.ModelViewSet):
     serializer_class = PromotionSerializer
     def get_permissions(self):
         if self.action in ['create','update','partial_update','destroy']:
-            return [IsAdminUser()]
+            return [IsAuthenticated()]
         return [AllowAny()]
 
     @action(detail=False, methods=['post'], permission_classes=[AllowAny], url_path='apply')

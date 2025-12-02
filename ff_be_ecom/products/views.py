@@ -4,7 +4,7 @@ from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Product
@@ -20,7 +20,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     def get_permissions(self):
         if self.action in ['create','update','partial_update','destroy']:
-            return [IsAdminUser()]
+            return [IsAuthenticated()]
         return [AllowAny()]
 
     @action(detail=True, methods=['get'], url_path='variants')

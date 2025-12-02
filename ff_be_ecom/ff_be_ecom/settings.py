@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django_filters',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework.authtoken',
     'categories',
     'products',
     'customers',
@@ -52,12 +53,19 @@ INSTALLED_APPS = [
     'promotions',
     'inventory',
     'accounts',
+    'django.contrib.admindocs',
 ]
-
+AUTH_USER_MODEL = "accounts.User"
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',],
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
+      'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+         "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    #'': 'django.contrib.admindocs',
 }
 
 MIDDLEWARE = [
